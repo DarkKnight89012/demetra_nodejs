@@ -3,6 +3,9 @@ import { UserEntity } from '../entities/user.entity.js';
 import { InjectRepository } from '@nestjs/typeorm';
 import { BaseUsersRepository } from './users.repository.abstract.js';
 import { Injectable } from '@nestjs/common';
+import { PUBLIC_USER_SELECT_FIELDS } from '../consts/PublicUserSelectFields.js';
+import { UserWithPass } from '../types/UserWithPass.js';
+import { UserWithRefreshToken } from '../types/UserWithRefresh.js';
 
 @Injectable()
 export class UsersRepository implements BaseUsersRepository {
@@ -18,6 +21,7 @@ export class UsersRepository implements BaseUsersRepository {
       take: limit,
       skip: skip,
       where: login ? { login: Like(`${login}%`) } : {},
+      select: PUBLIC_USER_SELECT_FIELDS,
     });
 
     return {
@@ -34,13 +38,10 @@ export class UsersRepository implements BaseUsersRepository {
     return result.affected !== 0;
   }
 
-  async findUserById(
-    id: string,
-    withHashRefersh?: boolean,
-  ): Promise<UserEntity | null> {
+  async findUserById(id: string): Promise<UserEntity | null> {
     const user = await this.userRepository.findOne({
       where: { id },
-      select: { hashedRefreshToken: withHashRefersh },
+      select: PUBLIC_USER_SELECT_FIELDS,
     });
     return user;
   }
@@ -54,12 +55,52 @@ export class UsersRepository implements BaseUsersRepository {
   }
 
   async findUserByLogin(login: string): Promise<UserEntity | null> {
-    const user = await this.userRepository.findOne({ where: { login } });
+    const user = await this.userRepository.findOne({
+      where: { login },
+      select: PUBLIC_USER_SELECT_FIELDS,
+    });
     return user;
   }
 
   async createUser(user: Partial<UserEntity>) {
     this.userRepository.create(user);
     return await this.userRepository.save(user);
+  }
+
+  async updateUserPassword(id: string, refreshToken: string) {
+    const result = await this.userRepository.update(id, {
+      hashedRefreshToken: refreshToken,
+    });
+
+    return result.affected !== 0;
+  }
+
+  async deleteUserPassword(id: string) {
+    const result = await this.userRepository.update(id, {
+      hashedRefreshToken: null,
+    });
+    return result.affected !== 0;
+  }
+
+  async findUserPassword(login: string): Promise<UserWithPass | null> {
+    const user = await this.userRepository.findOne({
+      where: { login },
+      select: {
+        id: true,
+        password: true,
+      },
+    });
+    return user;
+  }
+
+  async findUserWithRefresh(id: string): Promise<UserWithRefreshToken | null> {
+    const user = await this.userRepository.findOne({
+      where: { id },
+      select: {
+        id: true,
+        hashedRefreshToken: true,
+      },
+    });
+    return user;
   }
 }

@@ -13,6 +13,8 @@ import { CreateUserDto } from './dto/create-user.dto.js';
 import { JwtRefreshAuthGuard } from './guards/jwt-refresh-auth.guard.js';
 import type { UserWithRequest } from './types/UserWithRequest.js';
 import { JwtAuthGuard } from './guards/jwt-auth.guard.js';
+import { User } from '../users/decorators/user.decorator.js';
+import type { AuthUser } from './types/AuthUser.types.js';
 
 @Controller('auth')
 export class AuthController {
@@ -27,8 +29,8 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Post('logout')
   @HttpCode(200)
-  async logout(@Req() req: UserWithRequest) {
-    await this.authService.logout(req.user);
+  async logout(@User() user: AuthUser) {
+    await this.authService.logout(user);
     return { message: 'Logged out successfully' };
   }
 
@@ -40,7 +42,7 @@ export class AuthController {
   @UseGuards(JwtRefreshAuthGuard)
   @Post('refresh')
   @HttpCode(200)
-  async refresh(@Req() req: UserWithRequest) {
-    return this.authService.refresh(req.user);
+  async refresh(@User() user: AuthUser) {
+    return this.authService.refresh(user);
   }
 }

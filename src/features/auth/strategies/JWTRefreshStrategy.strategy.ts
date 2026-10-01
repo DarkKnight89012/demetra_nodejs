@@ -7,7 +7,7 @@ import { UsersService } from '../../users/users.service.js';
 import * as bcrypt from 'bcrypt';
 import { Request } from 'express';
 import { AuthUser } from '../types/AuthUser.types.js';
-import { createHash } from 'crypto';
+import { sha256 } from '../utils/sha256.js';
 
 @Injectable()
 export class JwtRefreshStrategy extends PassportStrategy(
@@ -35,16 +35,14 @@ export class JwtRefreshStrategy extends PassportStrategy(
 
     const refreshToken = auhorization.replace('Bearer ', '').trim();
 
-    const user = await this.userService.findUserById(payload.sub, true);
+    const user = await this.userService.findUserWithRefresh(payload.sub);
 
     if (!user || !user.hashedRefreshToken) {
       throw new UnauthorizedException();
     }
 
-    const refershSha = createHash('sha256').update(refreshToken).digest('hex');
-
     const isTokenMatching = await bcrypt.compare(
-      refershSha,
+      sha256(refreshToken),
       user.hashedRefreshToken,
     );
     if (!isTokenMatching) {

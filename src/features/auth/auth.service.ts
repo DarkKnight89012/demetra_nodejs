@@ -12,7 +12,8 @@ import { CreateUserDto } from './dto/create-user.dto.js';
 import { AuthUser } from './types/AuthUser.types.js';
 import { Tokens } from './types/Tokents.types.js';
 import * as bcrypt from 'bcrypt';
-import { createHash } from 'crypto';
+import { hashToken } from './utils/hashToken.js';
+import { hashString } from './utils/hashString.js';
 
 @Injectable()
 export class AuthService {
@@ -47,11 +48,9 @@ export class AuthService {
     const accessToken = await this.generateAccessToken(payload);
     const refreshToken = await this.generateRefreshToken(payload);
 
-    const refershSha = createHash('sha256').update(refreshToken).digest('hex');
+    const hashedToken = await hashToken(refreshToken);
 
-    const salt = await bcrypt.genSalt();
-    const hashedToken = await bcrypt.hash(refershSha, salt);
-    await this.usersService.setCurrentRefreshToken(payload.sub, hashedToken);
+    await this.usersService.updateUserPassword(payload.sub, hashedToken);
     return {
       accessToken,
       refreshToken,
@@ -60,7 +59,7 @@ export class AuthService {
 
   // Login method
   async login(loginDto: LoginDto): Promise<Tokens> {
-    const user = await this.usersService.findUserByLogin(loginDto.login);
+    const user = await this.usersService.findUserWithPassword(loginDto.login);
 
     if (!user) {
       throw new UnauthorizedException('Invalid login or password');
@@ -76,7 +75,7 @@ export class AuthService {
 
     const payload: JwtPayload = {
       sub: user.id,
-      login: user.login,
+      login: loginDto.login,
     };
 
     return await this.createNewTokens(payload);
@@ -99,7 +98,7 @@ export class AuthService {
       throw new UnauthorizedException('Passwords mismatch');
     }
 
-    const hashedPassword = await bcrypt.hash(createUser.password, 10);
+    const hashedPassword = await hashString(createUser.password);
 
     const { repPassword, ...userData } = createUser;
 
@@ -127,6 +126,6 @@ export class AuthService {
 
   // logout
   async logout(user: AuthUser) {
-    await this.usersService.setCurrentRefreshToken(user.userId, null);
+    await this.usersService.deleteUserPassword(user.userId);
   }
 }
